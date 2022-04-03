@@ -7,21 +7,29 @@ import br.com.jardelbarbosa.cliente.entity.Cliente;
 import br.com.jardelbarbosa.cliente.repository.ClienteRedisRepository;
 import br.com.jardelbarbosa.cliente.repository.ClienteRepository;
 import br.com.jardelbarbosa.cliente.utils.TextoUltils;
+import jdk.jfr.Enabled;
 import lombok.extern.log4j.Log4j2;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+
 @Log4j2
 @Service
+@EnableScheduling
 public class ClienteService {
 
+    private final int MINUTO = 1000 * 60;
+    private final int MINUTOS = MINUTO * 1;
     @Autowired
     private ClienteRepository clienteRepository;
 
@@ -32,7 +40,7 @@ public class ClienteService {
     private ModelMapper modelMapper;
 
     @CacheEvict(value = "clientes", allEntries = true)
-    public ClienteResponseDTO criar(ClienteRequestDTO clienteRequestDTO){
+    public ClienteResponseDTO criar(ClienteRequestDTO clienteRequestDTO) {
 
         Cliente cliente = convertCliente(clienteRequestDTO);
 
@@ -42,14 +50,14 @@ public class ClienteService {
     }
 
     @Cacheable("clientes")
-    public List<ClienteResponseDTO> listarClientes(String nome){
+    public List<ClienteResponseDTO> listarClientes(String nome) {
 
         List<Cliente> clienteList = null;
 
-        if(nome == null) {
-            clienteList = (List<Cliente>)clienteRepository.findAll();
+        if (nome == null) {
+            clienteList = (List<Cliente>) clienteRepository.findAll();
         } else {
-            clienteList = (List<Cliente>)clienteRepository.findByNomeContainingIgnoreCase(nome);
+            clienteList = (List<Cliente>) clienteRepository.findByNomeContainingIgnoreCase(nome);
         }
 
         Collections.sort(clienteList, Comparator.comparing(Cliente::getNome));
@@ -91,17 +99,30 @@ public class ClienteService {
     @CacheEvict(value = "clientes", allEntries = true)
     public void atualizarCliente(ClienteRequestDTO clienteRequestDTO, String email) throws Exception {
         Cliente cliente = clienteRepository.findByEmail(email);
-        if(cliente == null){
+        if (cliente == null) {
             throw new Exception("Cliente não encontrado.");
         }
         modelMapper.map(clienteRequestDTO, cliente);
         clienteRepository.save(cliente);
     }
-    public void sicronizarClienteBanco(){
+    @Scheduled(fixedDelay = MINUTOS)
+    public void sicronizarClienteBancoDados(){
         List<ClienteRedis> clienteRedisList = (List<ClienteRedis>) clienteRedisRepository.findAll();
-        clienteRedisList.stream().forEach(
-                clienteRedis -> log.info(clienteRedis)
-        );
+
+        if (CollectionUtils.isEmpty(clienteRedisList)) {
+            List<Cliente> clienteList = new ArrayList<>();
+            clienteRedisList.stream().forEach(
+                    clienteRedis -> {
+                        log.info(clienteRedis);
+                        Cliente cliente = modelMapper.map(clienteRedis, Cliente.class);
+                        clienteList.add(cliente);
+                    }
+            );
+            clienteRepository.saveAll(clienteList);
+            clienteRedisRepository.deleteAll(clienteRedisList);
+        } else{
+            log.info("Lista de clientes Redis nula ou invalida.");
+        }
 
     }
 
@@ -117,7 +138,7 @@ public class ClienteService {
     private void setNomeSobreNome(ClienteRequestDTO clienteRequestDTO, Cliente cliente) {
         int delimitadorIndex = clienteRequestDTO.getNomeCompleto().indexOf(" ");
         String nome = clienteRequestDTO.getNomeCompleto().substring(0, delimitadorIndex);
-        String sobrenome = clienteRequestDTO.getNomeCompleto().substring(delimitadorIndex+1, clienteRequestDTO.getNomeCompleto().length());
+        String sobrenome = clienteRequestDTO.getNomeCompleto().substring(delimitadorIndex + 1, clienteRequestDTO.getNomeCompleto().length());
 
         cliente.setNome(nome);
         cliente.setSobrenome(sobrenome);
@@ -131,4 +152,5 @@ public class ClienteService {
 
         return clienteResponseDTO;
     }
+
 }

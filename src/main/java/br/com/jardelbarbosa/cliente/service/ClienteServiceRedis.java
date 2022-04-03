@@ -2,14 +2,17 @@ package br.com.jardelbarbosa.cliente.service;
 
 import br.com.jardelbarbosa.cliente.document.ClienteRedis;
 import br.com.jardelbarbosa.cliente.dto.ClienteRequestDTO;
+import br.com.jardelbarbosa.cliente.entity.Cliente;
 import br.com.jardelbarbosa.cliente.repository.ClienteRedisRepository;
 import br.com.jardelbarbosa.cliente.utils.TextoUltils;
+import lombok.extern.log4j.Log4j2;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
-
+@Log4j2
 @Service
 public class ClienteServiceRedis {
 
@@ -44,10 +47,4 @@ public class ClienteServiceRedis {
 
     }
 
-
-
-
-    public List<ClienteRedis> sicronizarClienteBancoDados(){
-        return (List<ClienteRedis>)clienteRedisRepository.findAll();
-    }
 }

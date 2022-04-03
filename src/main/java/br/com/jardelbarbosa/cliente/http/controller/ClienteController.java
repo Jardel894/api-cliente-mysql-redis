@@ -34,9 +34,9 @@ public class ClienteController {
         ClienteRedis clienteSalvo = clienteServiceRedis.salvar(clienteRequestDTO);
         return clienteSalvo;
     }
-    @GetMapping("async")
+    @PutMapping("async")
     public void sicronizarClienteBancoDados(){
-        clienteServiceRedis.sicronizarClienteBancoDados();
+        clienteService.sicronizarClienteBancoDados();
     }
 
 
